@@ -6,7 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
-@import CoreBluetooth;
+@import IOBluetooth;
 
 @protocol VapeDelegate <NSObject>
 @optional

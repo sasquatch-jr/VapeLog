@@ -13,7 +13,6 @@
 		8B52652F1A55FCE200A6D8C8 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B52652E1A55FCE200A6D8C8 /* Images.xcassets */; };
 		8B5265311A55FCE900A6D8C8 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8B5265301A55FCE900A6D8C8 /* Main.storyboard */; };
 		8B5265361A55FD0000A6D8C8 /* digit.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8B5265321A55FD0000A6D8C8 /* digit.ttf */; };
-		8B5265371A55FD0000A6D8C8 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8B5265331A55FD0000A6D8C8 /* Info.plist */; };
 		8B5265381A55FD0000A6D8C8 /* label.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8B5265341A55FD0000A6D8C8 /* label.ttf */; };
 		8B5265391A55FD0000A6D8C8 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 8B5265351A55FD0000A6D8C8 /* main.m */; };
 /* End PBXBuildFile section */
@@ -146,7 +145,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8B5265371A55FD0000A6D8C8 /* Info.plist in Resources */,
 				8B52652F1A55FCE200A6D8C8 /* Images.xcassets in Resources */,
 				8B5265381A55FD0000A6D8C8 /* label.ttf in Resources */,
 				8B5265361A55FD0000A6D8C8 /* digit.ttf in Resources */,
@@ -205,10 +203,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
+				SDKROOT = macosx10.9;
 			};
 			name = Debug;
 		};
@@ -241,9 +239,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				SDKROOT = macosx;
+				SDKROOT = macosx10.9;
 			};
 			name = Release;
 		};
@@ -254,7 +252,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/VapeLog/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = VapeLog;
+				SDKROOT = macosx10.9;
 			};
 			name = Debug;
 		};
@@ -265,7 +265,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/VapeLog/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = VapeLog;
+				SDKROOT = macosx10.9;
 			};
 			name = Release;
 		};

@@ -12,8 +12,6 @@
     CBCentralManager *_centralManager;
     CBPeripheral *_discoveredPeripheral;
     dispatch_source_t _loggerTimer;
-    dispatch_source_t _temperatureTimer;
-    dispatch_source_t _batteryLevelTimer;
     dispatch_source_t _batteryStateTimer;
     dispatch_source_t _heaterStateTimer;
 }
@@ -63,6 +61,12 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
         [_centralManager scanForPeripheralsWithServices:@[] options:options];
     }
     return self;
+}
+
+- (void)dealloc
+{
+    // Be a good citizen and disconnect from device
+    [_centralManager cancelPeripheralConnection:_discoveredPeripheral];
 }
 
 #pragma mark - Logging
@@ -132,12 +136,12 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
 {
     _discoveredPeripheral = peripheral;
     
-    NSArray *services = @[UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE,
-                          UUID_DEVICE_INFO_SERVICE,
-                          UUID_DIAGNOSTICS_SERVICE];
+    NSArray *services = @[[CBUUID UUIDWithString:(NSString *)UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE],
+                          [CBUUID UUIDWithString:(NSString *)UUID_DEVICE_INFO_SERVICE],
+                          [CBUUID UUIDWithString:(NSString *)UUID_DIAGNOSTICS_SERVICE]];
     
     for (CBService *service in _discoveredPeripheral.services) {
-        if ([services containsObject:service.UUID.UUIDString]) {
+        if ([services containsObject:service.UUID]) {
             // Read needed services
             [_discoveredPeripheral discoverCharacteristics:nil forService:service];
         }
@@ -146,44 +150,49 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error
 {
-    NSArray *tempBattSerivceChars = @[UUID_CURRENT_TEMPERATURE,
-                                      UUID_TARGET_TEMPERATURE,
-                                      UUID_BOOSTER_TEMPERATURE,
-                                      UUID_BATTERY_CAPACITY];
+    NSArray *tempBattSerivceChars = @[[CBUUID UUIDWithString:(NSString *)UUID_CURRENT_TEMPERATURE],
+                                      [CBUUID UUIDWithString:(NSString *)UUID_TARGET_TEMPERATURE],
+                                      [CBUUID UUIDWithString:(NSString *)UUID_BOOSTER_TEMPERATURE],
+                                      [CBUUID UUIDWithString:(NSString *)UUID_BATTERY_CAPACITY]];
     
-    NSArray *deviceInfoServiceChars = @[UUID_SERIAL_NUMBER];
+    NSArray *deviceInfoServiceChars = @[[CBUUID UUIDWithString:(NSString *)UUID_SERIAL_NUMBER]];
     
-    NSArray *diagnosticsServiceChars = @[UUID_TEMPERATURE_PT1000,
-                                         UUID_POWER_ON_TIME,
-                                         UUID_CHARGER_STATUS,
-                                         UUID_CURRENT_ACCU];
+    NSArray *diagnosticsServiceChars = @[[CBUUID UUIDWithString:(NSString *)UUID_POWER_ON_TIME],
+                                         [CBUUID UUIDWithString:(NSString *)UUID_CHARGER_STATUS],
+                                         [CBUUID UUIDWithString:(NSString *)UUID_CURRENT_ACCU]];
     
-    if ([UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE isEqualToString:service.UUID.UUIDString]) {
+    if ([[CBUUID UUIDWithString:(NSString *)UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE] isEqualTo:service.UUID]) {
         for (CBCharacteristic* charateristic in service.characteristics) {
-            if ([tempBattSerivceChars containsObject:charateristic.UUID.UUIDString]) {
+            if ([tempBattSerivceChars containsObject:charateristic.UUID]) {
                 [_discoveredPeripheral readValueForCharacteristic:charateristic];
             }
         }
-    } else if ([UUID_DEVICE_INFO_SERVICE isEqualToString:service.UUID.UUIDString]) {
+    } else if ([[CBUUID UUIDWithString:(NSString *)UUID_DEVICE_INFO_SERVICE] isEqualTo:service.UUID]) {
         for (CBCharacteristic* charateristic in service.characteristics) {
-            if ([deviceInfoServiceChars containsObject:charateristic.UUID.UUIDString]) {
+            if ([deviceInfoServiceChars containsObject:charateristic.UUID]) {
                 [_discoveredPeripheral readValueForCharacteristic:charateristic];
             }
         }
-    } else if ([UUID_DIAGNOSTICS_SERVICE isEqualToString:service.UUID.UUIDString]) {
+    } else if ([[CBUUID UUIDWithString:(NSString *)UUID_DIAGNOSTICS_SERVICE] isEqualTo:service.UUID]) {
         for (CBCharacteristic* charateristic in service.characteristics) {
-            if ([diagnosticsServiceChars containsObject:charateristic.UUID.UUIDString]) {
+            if ([diagnosticsServiceChars containsObject:charateristic.UUID]) {
                 [_discoveredPeripheral readValueForCharacteristic:charateristic];
             }
         }
     }
 }
 
+- (void)peripheral:(CBPeripheral *)peripheral didUpdateNotificationStateForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
+{
+    if (error) {
+        NSLog(@"%@",[error localizedDescription]);
+    }
+}
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error
 {
     // Serial Number
-    if ([UUID_SERIAL_NUMBER isEqualToString:characteristic.UUID.UUIDString]) {
+    if ([[CBUUID UUIDWithString:(NSString *)UUID_SERIAL_NUMBER] isEqualTo:characteristic.UUID]) {
         NSString *sn = [self getStringValueFromData:characteristic.value];
         NSRange stringRange = {0, MIN([sn length], [sn length] - 2)};
         stringRange = [sn rangeOfComposedCharacterSequencesForRange:stringRange];
@@ -197,7 +206,7 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
     }
     
     // Set Temp
-    else if ([UUID_TARGET_TEMPERATURE isEqualToString:characteristic.UUID.UUIDString]) {
+    else if ([[CBUUID UUIDWithString:(NSString *)UUID_TARGET_TEMPERATURE] isEqualTo:characteristic.UUID]) {
         if (!_setTemp) {
             _setTemp = @([[self getNumberFromData:characteristic.value] doubleValue] / 10.0);
             if ([_delegate respondsToSelector:@selector(setTempDidUpdate)]) {
@@ -212,7 +221,7 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
     }
     
     // Booster Temp
-    else if ([UUID_BOOSTER_TEMPERATURE isEqualToString:characteristic.UUID.UUIDString]) {
+    else if ([[CBUUID UUIDWithString:(NSString *)UUID_BOOSTER_TEMPERATURE] isEqualTo:characteristic.UUID]) {
         if (!_boostTemp) {
             _boostTemp = @([[self getNumberFromData:characteristic.value] doubleValue] / 10.0);
             if ([_delegate respondsToSelector:@selector(boostDidUpdate)]) {
@@ -227,7 +236,7 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
     }
     
     // Battery
-    else if ([UUID_BATTERY_CAPACITY isEqualToString:characteristic.UUID.UUIDString]) {
+    else if ([[CBUUID UUIDWithString:(NSString *)UUID_BATTERY_CAPACITY] isEqualTo:characteristic.UUID]) {
 #ifdef DEBUG
         if (_batteryLevel.intValue != [[self getNumberFromData:characteristic.value] intValue]) {
             NSLog(@"Battery Level:%@",_batteryLevel);
@@ -238,18 +247,18 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
             [_delegate batteryLevelDidUpdate];
         }
         
-        _batteryLevelTimer = CreateDispatchTimer(15.000f, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            [_discoveredPeripheral readValueForCharacteristic:characteristic];
-        });
+        // Turn on notifications
+        if (!characteristic.isNotifying) {
+            [_discoveredPeripheral setNotifyValue:YES forCharacteristic:characteristic];
+        }
     }
     
-    // Temperature PT1000 Controlled
-    else if ([UUID_TEMPERATURE_PT1000 isEqualToString:characteristic.UUID.UUIDString]) {
+    // Temperature
+    else if ([[CBUUID UUIDWithString:(NSString *)UUID_CURRENT_TEMPERATURE] isEqualTo:characteristic.UUID]) {
         _currentTemp = @([[self getNumberFromData:characteristic.value] doubleValue] / 10);
         if ([_delegate respondsToSelector:@selector(tempDidUpdate)]) {
             [_delegate tempDidUpdate];
         }
-
         
         // High Temp "Breaker". Lower set temp if device is overheating
         if (_currentTemp.doubleValue > 220.0) {
@@ -266,13 +275,14 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
             }
         }
         
-        _temperatureTimer = CreateDispatchTimer(0.750f, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            [_discoveredPeripheral readValueForCharacteristic:characteristic];
-        });
+        // Turn on notifications
+        if (!characteristic.isNotifying) {
+            [_discoveredPeripheral setNotifyValue:YES forCharacteristic:characteristic];
+        }
     }
     
     // Battery State
-    else if ([UUID_CHARGER_STATUS isEqualToString:characteristic.UUID.UUIDString]) {
+    else if ([[CBUUID UUIDWithString:(NSString *)UUID_CHARGER_STATUS] isEqualTo:characteristic.UUID]) {
         NSNumber *t = [self getNumberFromData:characteristic.value];
         if ([t intValue] == 2) {
 #ifdef DEBUG
@@ -299,7 +309,7 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
     }
     
     // Heater
-    else if ([UUID_CURRENT_ACCU isEqualToString:characteristic.UUID.UUIDString]) {
+    else if ([[CBUUID UUIDWithString:(NSString *)UUID_CURRENT_ACCU] isEqualTo:characteristic.UUID]) {
         NSNumber *deviceOn = [self getNumberFromData:characteristic.value];
         if ([deviceOn intValue] >= 5000) {
 #ifdef DEBUG
@@ -326,7 +336,7 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
     }
     
     // Power On Time
-    else if ([UUID_POWER_ON_TIME isEqualToString:characteristic.UUID.UUIDString]) {
+    else if ([[CBUUID UUIDWithString:(NSString *)UUID_POWER_ON_TIME] isEqualTo:characteristic.UUID]) {
         _powerOnTime = [self getNumberFromData:characteristic.value];
         if ([_delegate respondsToSelector:@selector(powerOnTimeDidUpdate)]) {
             [_delegate powerOnTimeDidUpdate];
@@ -348,7 +358,7 @@ didWriteValueForCharacteristic:(CBCharacteristic *)characteristic
 {
     if (!error) {
         // Update the object's state to match the vape on tem changes
-        if ([UUID_TARGET_TEMPERATURE isEqualToString:characteristic.UUID.UUIDString] || [UUID_BOOSTER_TEMPERATURE isEqualToString:characteristic.UUID.UUIDString]) {
+        if ([[CBUUID UUIDWithString:(NSString *)UUID_TARGET_TEMPERATURE] isEqualTo:characteristic.UUID] || [[CBUUID UUIDWithString:(NSString *)UUID_BOOSTER_TEMPERATURE] isEqualTo:characteristic.UUID]) {
             [_discoveredPeripheral readValueForCharacteristic:characteristic];
         }
     }
@@ -380,9 +390,9 @@ didWriteValueForCharacteristic:(CBCharacteristic *)characteristic
     if (400 > t.intValue > 2100) {
         // Temp too high.
         for (CBService *s in _discoveredPeripheral.services) {
-            if ([UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE isEqualToString:s.UUID.UUIDString]) {
+            if ([[CBUUID UUIDWithString:(NSString *)UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE] isEqualTo:s.UUID]) {
                 for (CBCharacteristic *c in s.characteristics)
-                    if ([UUID_TARGET_TEMPERATURE isEqualToString:c.UUID.UUIDString]) {
+                    if ([[CBUUID UUIDWithString:(NSString *)UUID_TARGET_TEMPERATURE] isEqualTo:c.UUID]) {
                         NSLog(@"%@ is too high",t);
                         [_delegate setTempDidUpdate];
                     }
@@ -393,9 +403,9 @@ didWriteValueForCharacteristic:(CBCharacteristic *)characteristic
         
         NSData *d = [[NSData alloc] initWithBytes:&v length:sizeof(v)];
         for (CBService *s in _discoveredPeripheral.services) {
-            if ([UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE isEqualToString:s.UUID.UUIDString]) {
+            if ([[CBUUID UUIDWithString:(NSString *)UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE] isEqualTo:s.UUID]) {
                 for (CBCharacteristic *c in s.characteristics)
-                    if ([UUID_TARGET_TEMPERATURE isEqualToString:c.UUID.UUIDString]) {
+                    if ([[CBUUID UUIDWithString:(NSString *)UUID_TARGET_TEMPERATURE] isEqualTo:c.UUID]) {
 #ifdef DEBUG
                         NSLog(@"Changing temp to:%@",t);
 #endif
@@ -420,9 +430,9 @@ didWriteValueForCharacteristic:(CBCharacteristic *)characteristic
     
     NSData *d = [[NSData alloc] initWithBytes:&v length:sizeof(v)];
     for (CBService *s in _discoveredPeripheral.services) {
-        if ([UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE isEqualToString:s.UUID.UUIDString]) {
+        if ([[CBUUID UUIDWithString:(NSString *)UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE] isEqualTo:s.UUID]) {
             for (CBCharacteristic *c in s.characteristics)
-                if ([UUID_BOOSTER_TEMPERATURE isEqualToString:c.UUID.UUIDString]) {
+                if ([[CBUUID UUIDWithString:(NSString *)UUID_BOOSTER_TEMPERATURE] isEqualTo:c.UUID]) {
 #ifdef DEBUG
                     NSLog(@"Changing boost to:%@",t);
 #endif
@@ -450,9 +460,9 @@ dispatch_source_t CreateDispatchTimer(double interval, dispatch_queue_t queue, d
 {
     // Fetch new power on time
     for (CBService *s in _discoveredPeripheral.services) {
-        if ([UUID_DIAGNOSTICS_SERVICE isEqualToString:s.UUID.UUIDString]) {
+        if ([[CBUUID UUIDWithString:(NSString *)UUID_DIAGNOSTICS_SERVICE] isEqualTo:s.UUID]) {
             for (CBCharacteristic *c in s.characteristics)
-                if ([UUID_POWER_ON_TIME isEqualToString:c.UUID.UUIDString]) {
+                if ([[CBUUID UUIDWithString:(NSString *)UUID_POWER_ON_TIME] isEqualTo:c.UUID]) {
                     [_discoveredPeripheral readValueForCharacteristic:c];
                 }
         }

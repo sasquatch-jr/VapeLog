@@ -18,10 +18,9 @@
     BOOL _showUse;
 }
 
-- (void)viewDidLoad
+- (void)loadView
 {
-    [super viewDidLoad];
-
+    [super loadView];
     _theVape = [[Vape alloc] init];
     _theVape.delegate = self;
     
