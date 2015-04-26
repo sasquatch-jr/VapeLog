@@ -19,6 +19,9 @@
 - (void)chargeStatusDidUpdate;
 - (void)heatingStatusDidUpdate;
 - (void)powerOnTimeDidUpdate;
+- (void)vapeDidConnect;
+- (void)vapeDidDisconnect;
+- (void)vapeDidReachTargetTemperature;
 @end
 
 @interface Vape : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate>

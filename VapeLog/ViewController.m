@@ -21,6 +21,7 @@
 - (void)loadView
 {
     [super loadView];
+
     _theVape = [[Vape alloc] init];
     _theVape.delegate = self;
     
@@ -198,6 +199,51 @@
     [self boostDidUpdate];
 }
 
+- (void)vapeDidConnect
+{
+    // Show a system alert on re-connect
+    if (_theVape.serialNumber) {
+        NSUserNotification *notification = [[NSUserNotification alloc] init];
+        notification.title = @"Connected to Crafty";
+        notification.informativeText = [NSString stringWithFormat:@"Serial Number: %@",_theVape.serialNumber];
+        notification.soundName = NSUserNotificationDefaultSoundName;
+        
+        [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
+    }
+    
+    _boostStepper.enabled = YES;
+    _tempStepper.enabled = YES;
+}
+
+- (void)vapeDidDisconnect
+{
+    NSUserNotification *notification = [[NSUserNotification alloc] init];
+    notification.title = @"Lost connection to Crafty";
+    notification.informativeText = [NSString stringWithFormat:@"Serial Number: %@",_theVape.serialNumber];
+    notification.soundName = NSUserNotificationDefaultSoundName;
+    
+    [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
+    
+    _boostStepper.enabled = NO;
+    _tempStepper.enabled = NO;
+}
+
+- (void)vapeDidReachTargetTemperature
+{
+    NSString *unit;
+    if (_isCelsius) {
+        unit = @"C";
+    } else {
+        unit = @"F";
+    }
+    NSUserNotification *notification = [[NSUserNotification alloc] init];
+    notification.title = @"Crafty is Ready";
+    notification.informativeText = [NSString stringWithFormat:@"Your Crafty has been heated to %@º%@\nEnjoy!",@(_tempStepper.intValue),unit];
+    notification.soundName = NSUserNotificationDefaultSoundName;
+    
+    [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
+}
+
 #pragma mark - IBActions
 - (IBAction)changeTemperature:(id)sender {
     // Figure out if we need to increase or decrease the temp
@@ -276,12 +322,11 @@
         if (result == NSModalResponseOK) {
             // Start Logger
             filePath = [[panel URL] path];
-            NSError *writeErr;
-            [[NSFileManager defaultManager] createFileAtPath:filePath contents:nil attributes:nil];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+                NSError *rmErr;
+                [[NSFileManager defaultManager] removeItemAtPath:filePath error:&rmErr];
+            }
             
-            // Write header
-            NSString *csvHeader = @"time,temperature,battery,set_temp\n";
-            [csvHeader writeToFile:filePath atomically:YES encoding:NSUTF8StringEncoding error:&writeErr];
             [_theVape logToPath:filePath];
             _recordLamp.textColor = [NSColor colorWithCalibratedRed:1.000 green:0.000 blue:0.000 alpha:1.00];
         } else {

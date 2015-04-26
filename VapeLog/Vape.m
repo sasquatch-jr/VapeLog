@@ -12,8 +12,12 @@
     CBCentralManager *_centralManager;
     CBPeripheral *_discoveredPeripheral;
     dispatch_source_t _loggerTimer;
+    dispatch_source_t _temperatureTimer;
+    dispatch_source_t _batteryLevelTimer;
     dispatch_source_t _batteryStateTimer;
     dispatch_source_t _heaterStateTimer;
+    NSTimer *_pingTimer;
+    BOOL _vapeHeated;
 }
 
 #pragma mark - UUIDs
@@ -57,8 +61,7 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
     if (self) {
         // Setup Bluetooth Manager
         _centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
-        NSDictionary *options = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBCentralManagerScanOptionAllowDuplicatesKey];
-        [_centralManager scanForPeripheralsWithServices:@[] options:options];
+        [_centralManager scanForPeripheralsWithServices:@[] options:@{}];
     }
     return self;
 }
@@ -73,11 +76,20 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
 
 - (void)logToPath:(NSString *)logPath
 {
+    if (![[NSFileManager defaultManager] fileExistsAtPath:logPath]) {
+        NSError *writeErr;
+        [[NSFileManager defaultManager] createFileAtPath:logPath contents:nil attributes:nil];
+        
+        // Write header
+        NSString *csvHeader = @"time,temperature,battery,set_temp\n";
+        [csvHeader writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:&writeErr];
+    }
+    
     NSDateFormatter* dateFormatter = [[NSDateFormatter alloc] init];
     dateFormatter.dateFormat = @"yyyy-MM-dd HH:mm:ss";
     if (_batteryLevel && _currentTemp) {
         // Only log if we have data
-        NSString *logStr = [NSString stringWithFormat:@"%@,%@,%@,%@\n",[dateFormatter stringFromDate:[NSDate date]],@([_currentTemp floatValue] / 10.0f), _batteryLevel,@([_setTemp intValue] /10)];
+        NSString *logStr = [NSString stringWithFormat:@"%@,%@,%@,%@\n",[dateFormatter stringFromDate:[NSDate date]],@([_currentTemp floatValue]), _batteryLevel,@([_setTemp intValue])];
 
         NSFileHandle *logHandle = [NSFileHandle fileHandleForUpdatingAtPath:logPath];
         [logHandle seekToEndOfFile];
@@ -105,6 +117,17 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
     _discoveredPeripheral = peripheral;
     _discoveredPeripheral.delegate = self;
     [_discoveredPeripheral discoverServices:nil];
+
+    if ([_delegate respondsToSelector:@selector(vapeDidConnect)]) {
+        [_delegate vapeDidConnect];
+    }
+    
+    _pingTimer = [NSTimer scheduledTimerWithTimeInterval:5.0
+                                                  target:self
+                                                  selector:@selector(pingVape)
+                                                  userInfo:nil
+                                                  repeats:YES];
+    _vapeHeated = NO;
 }
 
 - (void)centralManagerDidUpdateState:(CBCentralManager *)central
@@ -215,6 +238,9 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
         } else {
             _setTemp = @([[self getNumberFromData:characteristic.value] doubleValue] / 10.0);
         }
+        
+        _vapeHeated = NO;
+        
 #ifdef DEBUG
         NSLog(@"Set Temp:%@",_setTemp);
 #endif
@@ -278,6 +304,19 @@ const NSString *UUID_DESIGN_CAPACITY_ACCU = @"00000183-4C45-4B43-4942-265A524F54
         // Turn on notifications
         if (!characteristic.isNotifying) {
             [_discoveredPeripheral setNotifyValue:YES forCharacteristic:characteristic];
+        }
+        
+        // Check if we're at temp
+        if (!_vapeHeated && (_currentTemp.intValue > (_setTemp.intValue - 3))) {
+            if (_setTemp) {
+                _vapeHeated = YES;
+                if ([_delegate respondsToSelector:@selector(vapeDidReachTargetTemperature)]) {
+                    [_delegate vapeDidReachTargetTemperature];
+                }
+            }
+        } else if (_vapeHeated && (_setTemp.intValue - 12) >= _currentTemp.intValue) {
+            // If temp drops 12ºC vape was likely turned off. Reset _vapeHeated to re-trigger alerts
+            _vapeHeated = NO;
         }
     }
     
@@ -387,7 +426,7 @@ didWriteValueForCharacteristic:(CBCharacteristic *)characteristic
         t = @([[(NSTimer *)newTemp userInfo] intValue] * 10);
     }
     
-    if (400 > t.intValue > 2100) {
+    if (400 > t.intValue || t.intValue > 2100) {
         // Temp too high.
         for (CBService *s in _discoveredPeripheral.services) {
             if ([[CBUUID UUIDWithString:(NSString *)UUID_TEMPERATURE_AND_BATTERY_CONTROL_SERVICE] isEqualTo:s.UUID]) {
@@ -469,6 +508,23 @@ dispatch_source_t CreateDispatchTimer(double interval, dispatch_queue_t queue, d
     }
     
     return _powerOnTime;
+}
+
+- (void)pingVape
+{
+    if (_discoveredPeripheral.state == CBPeripheralStateDisconnected) {
+        if ([_delegate respondsToSelector:@selector(vapeDidDisconnect)]) {
+            [_delegate vapeDidDisconnect];
+        }
+        
+        if (_pingTimer) {
+            [_pingTimer invalidate];
+            _pingTimer = nil;
+        }
+        
+        _discoveredPeripheral = nil;
+        [_centralManager scanForPeripheralsWithServices:@[] options:@{}];
+    }
 }
 
 @end
