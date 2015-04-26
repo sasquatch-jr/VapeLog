@@ -11,7 +11,7 @@
                 https://raw.githubusercontent.com/sasquatch-jr/VapeLog/v0.5/changes.html
             </sparkle:releaseNotesLink>
             <pubDate>Sun, 26 Apr 2014 19:20:11 +0000</pubDate>
-            <enclosure url="https://raw.githubusercontent.com/sasquatch-jr/VapeLog/v0.5/build/VapeLog-0.5.zip" sparkle:version="0.5-β" type="application/octet-stream" />
+            <enclosure url="https://raw.githubusercontent.com/sasquatch-jr/VapeLog/v0.5/build/VapeLog-0.5.zip" sparkle:version="0.5" type="application/octet-stream" />
             <sparkle:minimumSystemVersion>10.9</sparkle:minimumSystemVersion>
         </item>
     </channel>
