@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>VapeLogs's Changelog</title>
+        <link>https://raw.githubusercontent.com/sasquatch-jr/VapeLog/updates/updates.xml</link>
+        <description>Most recent changes with links to updates.</description>
+        <language>en</language>
+        <item>
+            <title>Version 0.5</title>
+            <sparkle:releaseNotesLink>
+                https://raw.githubusercontent.com/sasquatch-jr/VapeLog/v0.5/changes.html
+            </sparkle:releaseNotesLink>
+            <pubDate>Sun, 26 Apr 2014 19:20:11 +0000</pubDate>
+            <enclosure url="https://raw.githubusercontent.com/sasquatch-jr/VapeLog/v0.5/build/VapeLog-0.5.zip" sparkle:version="0.5-β" type="application/octet-stream" />
+            <sparkle:minimumSystemVersion>10.9</sparkle:minimumSystemVersion>
+        </item>
+    </channel>
+</rss>
